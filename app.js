@@ -3,17 +3,13 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
-  // Base URL (persistida no localStorage)
-  const baseUrlInput = $("#baseUrl");
-  const savedBase = localStorage.getItem("rafacar.baseUrl");
-  if (savedBase) baseUrlInput.value = savedBase;
-  const BASE = () => baseUrlInput.value.replace(/\/+$/,''); // sem barra final
-  $("#saveBaseUrl").addEventListener("click", () => {
-    localStorage.setItem("rafacar.baseUrl", baseUrlInput.value);
-    toast("URL do backend salva.");
-    // recarregar dados básicos
-    carregarTudo();
-  });
+// Pelo novo bloco abaixo:
+// Base URL (lida a partir das variáveis de ambiente)
+const BASE = () => (import.meta.env.VITE_API_URL || "").replace(/\/+$/, '');
+if (!BASE()) {
+    console.error("VITE_API_URL não está definida!");
+    toast("Erro: A URL do backend não foi configurada.");
+}
 
   // Navegação por tabs
   $$(".tabs button").forEach(btn => {
