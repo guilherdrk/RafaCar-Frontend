@@ -1,0 +1,310 @@
+
+(() => {
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+
+  // Base URL (persistida no localStorage)
+  const baseUrlInput = $("#baseUrl");
+  const savedBase = localStorage.getItem("rafacar.baseUrl");
+  if (savedBase) baseUrlInput.value = savedBase;
+  const BASE = () => baseUrlInput.value.replace(/\/+$/,''); // sem barra final
+  $("#saveBaseUrl").addEventListener("click", () => {
+    localStorage.setItem("rafacar.baseUrl", baseUrlInput.value);
+    toast("URL do backend salva.");
+    // recarregar dados básicos
+    carregarTudo();
+  });
+
+  // Navegação por tabs
+  $$(".tabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      $$(".tabs button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const tab = btn.dataset.tab;
+      $$(".tab").forEach(sec => sec.classList.remove("active"));
+      $("#tab-" + tab).classList.add("active");
+    });
+  });
+
+  // Toast simples
+  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2200); }
+
+  // Helpers
+  const money = (v) => {
+    if (v === null || v === undefined) return "—";
+    try { return Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"}); }
+    catch { return v; }
+  };
+  const pad2 = (n) => String(n).padStart(2,"0");
+  const fmtMonth = (m) => pad2(m);
+
+  async function api(path, opts={}){
+    const url = BASE() + path;
+    const res = await fetch(url, {
+      headers: { "Content-Type":"application/json" },
+      ...opts
+    });
+    if (!res.ok){
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status} — ${text}`);
+    }
+    if (res.status === 204) return null;
+    const ct = res.headers.get("content-type") || "";
+    return ct.includes("application/json") ? res.json() : res.text();
+  }
+
+  // ====== Veículos ======
+  async function listarVeiculos(){
+    const data = await api("/veiculos");
+    const tbody = $("#tVeiculos");
+    tbody.innerHTML = "";
+    data.forEach(v => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${v.id}</td>
+        <td>${v.nome ?? ""}</td>
+        <td>${money(v.preco)}</td>
+        <td>${money(v.custo)}</td>
+        <td>${v.imagemUrl ? `<a href="${v.imagemUrl}" target="_blank">link</a>`:"—"}</td>
+        <td>
+          <button class="icon" data-edit="${v.id}">✏️</button>
+          <button class="icon" data-del="${v.id}">🗑️</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+
+    // popular selects dependentes
+    popularSelectVeiculos(data);
+
+    // bind ações
+    tbody.querySelectorAll("button[data-edit]").forEach(btn => {
+      btn.addEventListener("click", () => editarVeiculo(Number(btn.dataset.edit)));
+    });
+    tbody.querySelectorAll("button[data-del]").forEach(btn => {
+      btn.addEventListener("click", () => removerVeiculo(Number(btn.dataset.del)));
+    });
+  }
+
+  function popularSelectVeiculos(list){
+    const sel1 = $("#vd-veiculo");
+    const sel2 = $("#d-veiculo");
+    [sel1, sel2].forEach(sel => { sel.innerHTML = `<option value="">—</option>`; });
+    list.forEach(v => {
+      const opt = (id) => {
+        const o = document.createElement("option");
+        o.value = v.id;
+        o.textContent = `${v.id} — ${v.nome}`;
+        return o;
+      };
+      sel1.appendChild(opt());
+      sel2.appendChild(opt());
+    });
+  }
+
+  async function salvarVeiculo(e){
+    e.preventDefault();
+    const id = $("#v-id").value.trim();
+    const payload = {
+      nome: $("#v-nome").value.trim(),
+      preco: Number($("#v-preco").value),
+      custo: Number($("#v-custo").value),
+      imagemUrl: $("#v-imagemUrl").value.trim() || null
+    };
+    const path = id ? `/veiculos/${id}` : "/veiculos";
+    const method = id ? "PUT" : "POST";
+    await api(path, { method, body: JSON.stringify(payload) });
+    toast("Veículo salvo.");
+    $("#fVeiculo").reset();
+    $("#v-id").value = "";
+    listarVeiculos();
+  }
+
+  async function editarVeiculo(id){
+    const v = await api(`/veiculos/${id}`);
+    $("#v-id").value = v.id;
+    $("#v-nome").value = v.nome ?? "";
+    $("#v-preco").value = v.preco ?? "";
+    $("#v-custo").value = v.custo ?? "";
+    $("#v-imagemUrl").value = v.imagemUrl ?? "";
+    toast("Editando veículo #" + id);
+  }
+
+  async function removerVeiculo(id){
+    if (!confirm("Remover veículo #" + id + "?")) return;
+    await api(`/veiculos/${id}`, { method: "DELETE" });
+    toast("Veículo removido.");
+    listarVeiculos();
+  }
+  $("#fVeiculo").addEventListener("submit", salvarVeiculo);
+  $("#v-cancelar").addEventListener("click", () => { $("#fVeiculo").reset(); $("#v-id").value=""; });
+
+  // ====== Vendas ======
+  async function listarVendas(){
+    const data = await api("/vendas");
+    const tbody = $("#tVendas");
+    tbody.innerHTML = "";
+    data.forEach(v => {
+      const tr = document.createElement("tr");
+      const dt = v.dataVenda ?? "";
+      tr.innerHTML = `
+        <td>${v.id}</td>
+        <td>${v.veiculo}</td>
+        <td>${v.quantidade}</td>
+        <td>${money(v.precoUnitario)}</td>
+        <td>${money(v.custoUnitario)}</td>
+        <td>${money(v.total)}</td>
+        <td>${money(v.lucro)}</td>
+        <td>${(v.margem ?? 0).toFixed(2)}</td>
+        <td>${dt ? new Date(dt).toLocaleString("pt-BR") : "—"}</td>
+        <td><button class="icon" data-delv="${v.id}">🗑️</button></td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("button[data-delv]").forEach(btn => {
+      btn.addEventListener("click", () => removerVenda(Number(btn.dataset.delv)));
+    });
+  }
+
+  async function salvarVenda(e){
+    e.preventDefault();
+    const veiculoId = $("#vd-veiculo").value;
+    if (!veiculoId) { alert("Selecione um veículo"); return; }
+    const payload = {
+      veiculo: { id: Number(veiculoId) },
+      quantidade: Number($("#vd-quantidade").value || 1),
+    };
+    const precoStr = $("#vd-preco").value;
+    if (precoStr && !isNaN(Number(precoStr))) payload.precoUnitarioCustom = Number(precoStr);
+    const dt = $("#vd-data").value;
+    if (dt) payload.dataVenda = new Date(dt).toISOString();
+    await api("/vendas", { method:"POST", body: JSON.stringify(payload) });
+    toast("Venda registrada.");
+    $("#fVenda").reset();
+    listarVendas();
+    carregarResumo();
+  }
+
+  async function removerVenda(id){
+    if (!confirm("Remover venda #" + id + "?")) return;
+    await api(`/vendas/${id}`, { method:"DELETE" });
+    toast("Venda removida.");
+    listarVendas();
+    carregarResumo();
+  }
+  $("#fVenda").addEventListener("submit", salvarVenda);
+
+  // ====== Despesas ======
+  async function listarDespesas(){
+    const data = await api("/despesas");
+    const tbody = $("#tDespesas");
+    tbody.innerHTML = "";
+    data.forEach(d => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${d.id}</td>
+        <td>${d.descricao ?? ""}</td>
+        <td>${money(d.valor)}</td>
+        <td>${d.data ? new Date(d.data).toLocaleDateString("pt-BR") : "—"}</td>
+        <td>${d.veiculo ? (d.veiculo.id + " — " + (d.veiculo.nome ?? "")) : "—"}</td>
+        <td><button class="icon" data-deld="${d.id}">🗑️</button></td>`;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll("button[data-deld]").forEach(btn => {
+      btn.addEventListener("click", () => removerDespesa(Number(btn.dataset.deld)));
+    });
+  }
+
+  async function salvarDespesa(e){
+    e.preventDefault();
+    const veiculoId = $("#d-veiculo").value;
+    const payload = {
+      descricao: $("#d-descricao").value.trim(),
+      valor: Number($("#d-valor").value),
+    };
+    const dt = $("#d-data").value;
+    if (dt) payload.data = dt; // LocalDate (yyyy-MM-dd)
+    if (veiculoId) payload.veiculo = { id: Number(veiculoId) };
+    await api("/despesas", { method:"POST", body: JSON.stringify(payload) });
+    toast("Despesa criada.");
+    $("#fDespesa").reset();
+    listarDespesas();
+    carregarResumo();
+  }
+  async function removerDespesa(id){
+    if (!confirm("Remover despesa #" + id + "?")) return;
+    await api(`/despesas/${id}`, { method:"DELETE" });
+    toast("Despesa removida.");
+    listarDespesas();
+    carregarResumo();
+  }
+  $("#fDespesa").addEventListener("submit", salvarDespesa);
+
+  // ====== Resumo ======
+  async function carregarResumo(){
+    // /financeiro/resumo-mensal -> [{ano, mes, receita, despesa, lucro}]
+    // Em alguns controllers, vendas/despesas possuem /resumo-mensal próprios; mas vamos usar o consolidado.
+    let linhas = [];
+    try {
+      linhas = await api("/financeiro/resumo-mensal");
+    } catch (e) {
+      console.warn("Falha no /financeiro/resumo-mensal, tentando combinar vendas+despesas...", e);
+      // fallback: buscar receitas e despesas separadamente se existirem
+      try {
+        const rec = await api("/vendas/resumo-mensal");
+        const des = await api("/despesas/resumo-mensal");
+        const mapa = new Map();
+        rec.forEach(r => {
+          const key = `${r.ano}-${r.mes}`;
+          mapa.set(key, {ano:r.ano, mes:r.mes, receita:(r.total ?? r.receita ?? r.lucro ?? 0), despesa:0, lucro:(r.lucro ?? r.total ?? r.receita ?? 0)});
+        });
+        des.forEach(d => {
+          const key = `${d.ano}-${d.mes}`;
+          const prev = mapa.get(key) || {ano:d.ano, mes:d.mes, receita:0, despesa:0, lucro:0};
+          prev.despesa = d.total;
+          prev.lucro = (prev.receita || 0) - (prev.despesa || 0);
+          mapa.set(key, prev);
+        });
+        linhas = Array.from(mapa.values()).sort((a,b)=> (b.ano-a.ano) || (b.mes-a.mes));
+      } catch {}
+    }
+    const tbody = $("#tResumo");
+    tbody.innerHTML = "";
+    const now = new Date();
+    const anoAtual = now.getFullYear();
+    const mesAtual = now.getMonth()+1;
+    let receitaAtual=0, despesaAtual=0, lucroAtual=0;
+
+    linhas.forEach(l => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${l.ano}</td>
+        <td>${fmtMonth(l.mes)}</td>
+        <td>${money(l.receita)}</td>
+        <td>${money((l.despesa ?? l.despesas ?? 0))}</td>
+        <td>${money(l.lucro)}</td>`;
+      tbody.appendChild(tr);
+      if (l.ano===anoAtual && l.mes===mesAtual){
+        receitaAtual = Number(l.receita||0);
+        despesaAtual = Number((l.despesa ?? l.despesas ?? 0) || 0);
+        lucroAtual = Number(l.lucro||0);
+      }
+    });
+    $("#receitaMes").textContent = money(receitaAtual);
+    $("#despesaMes").textContent = money(despesaAtual);
+    $("#lucroMes").textContent = money(lucroAtual);
+  }
+
+  async function carregarTudo(){
+    try {
+      await listarVeiculos();
+      await listarVendas();
+      await listarDespesas();
+      await carregarResumo();
+    } catch (e) {
+      console.error(e);
+      toast("Não foi possível carregar alguns dados. Verifique a URL do backend e o CORS.");
+    }
+  }
+
+  // Boot
+  carregarTudo();
+})();

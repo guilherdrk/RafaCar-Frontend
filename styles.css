@@ -1,0 +1,32 @@
+
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#0f1116;color:#eaeaea}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#131722;border-bottom:1px solid #1f263a;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:18px;margin:0}
+.backend-config{display:flex;gap:8px;align-items:center}
+.backend-config input{background:#0b0e14;border:1px solid #1f263a;color:#eaeaea;padding:6px 8px;border-radius:8px;min-width:260px}
+.backend-config button{background:#2d6cdf;border:0;color:white;padding:8px 10px;border-radius:10px;cursor:pointer}
+.tabs{display:flex;gap:8px;padding:10px 14px;background:#0b0e14;border-bottom:1px solid #1f263a;position:sticky;top:58px;z-index:9}
+.tabs button{background:#141a26;border:1px solid #25314a;color:#cfd6e4;padding:8px 12px;border-radius:10px;cursor:pointer}
+.tabs button.active{background:#2d6cdf;color:white;border-color:#2d6cdf}
+main{padding:16px;max-width:1200px;margin:0 auto}
+.tab{display:none}
+.tab.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.card{background:#141a26;border:1px solid #25314a;border-radius:16px;padding:14px}
+.card h3{margin:0 0 6px 0;font-size:15px;color:#a9b4c7}
+.card div{font-size:22px;font-weight:700}
+table{width:100%;border-collapse:collapse;background:#0b0e14;border:1px solid #1f263a;border-radius:14px;overflow:hidden}
+th,td{border-bottom:1px solid #1f263a;padding:10px;text-align:left;font-size:14px}
+thead th{background:#141a26;color:#cfd6e4}
+.split{display:grid;grid-template-columns:3fr 1.4fr;gap:16px}
+.panel{background:#0b0e14;border:1px solid #1f263a;border-radius:16px;padding:14px;position:sticky;top:120px;height:max-content}
+form{display:grid;gap:10px}
+label{display:grid;gap:5px;font-size:13px;color:#c0c9d6}
+input,select{padding:10px;border-radius:10px;border:1px solid #25314a;background:#141a26;color:#eaeaea}
+.actions{display:flex;gap:8px}
+.actions button{background:#2d6cdf;border:0;color:white;padding:10px 12px;border-radius:10px;cursor:pointer}
+button.icon{background:transparent;border:0;color:#eaeaea;cursor:pointer}
+.toast{position:fixed;bottom:16px;right:16px;background:#1c232f;color:white;padding:10px 12px;border-radius:10px;opacity:0;transform:translateY(10px);transition:all .3s;border:1px solid #2d354b}
+.toast.show{opacity:1;transform:translateY(0)}
+@media (max-width:900px){.split{grid-template-columns:1fr}.cards{grid-template-columns:1fr}}

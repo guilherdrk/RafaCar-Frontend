@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RafaCar • Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>RafaCar • Dashboard</h1>
+    <div class="backend-config">
+      <label for="baseUrl">Backend:</label>
+      <input id="baseUrl" type="text" value="http://localhost:8080" />
+      <button id="saveBaseUrl">Salvar</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="resumo" class="active">Resumo</button>
+    <button data-tab="veiculos">Veículos</button>
+    <button data-tab="vendas">Vendas</button>
+    <button data-tab="despesas">Despesas</button>
+  </nav>
+
+  <main>
+    <!-- Resumo -->
+    <section id="tab-resumo" class="tab active">
+      <h2>Resumo Financeiro por Mês</h2>
+      <div class="cards">
+        <div class="card">
+          <h3>Receita (Vendas)</h3>
+          <div id="receitaMes">—</div>
+        </div>
+        <div class="card">
+          <h3>Despesa</h3>
+          <div id="despesaMes">—</div>
+        </div>
+        <div class="card">
+          <h3>Lucro</h3>
+          <div id="lucroMes">—</div>
+        </div>
+      </div>
+
+      <h3>Histórico por Mês</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Ano</th>
+            <th>Mês</th>
+            <th>Receita</th>
+            <th>Despesa</th>
+            <th>Lucro</th>
+          </tr>
+        </thead>
+        <tbody id="tResumo"></tbody>
+      </table>
+    </section>
+
+    <!-- Veículos -->
+    <section id="tab-veiculos" class="tab">
+      <div class="split">
+        <div>
+          <h2>Veículos</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Nome</th><th>Preço</th><th>Custo</th><th>Imagem</th><th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tVeiculos"></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Novo/Editar Veículo</h3>
+          <form id="fVeiculo">
+            <input type="hidden" id="v-id" />
+            <label>Nome <input id="v-nome" required /></label>
+            <label>Preço (R$) <input id="v-preco" type="number" step="0.01" required /></label>
+            <label>Custo (R$) <input id="v-custo" type="number" step="0.01" required /></label>
+            <label>Imagem URL <input id="v-imagemUrl" /></label>
+            <div class="actions">
+              <button type="submit">Salvar</button>
+              <button type="button" id="v-cancelar">Cancelar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Vendas -->
+    <section id="tab-vendas" class="tab">
+      <div class="split">
+        <div>
+          <h2>Vendas</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Veículo</th><th>Qtd</th><th>Preço Unit.</th><th>Custo Unit.</th><th>Total</th><th>Lucro</th><th>Margem %</th><th>Data</th><th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tVendas"></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Registrar Venda</h3>
+          <form id="fVenda">
+            <label>Veículo
+              <select id="vd-veiculo" required></select>
+            </label>
+            <label>Quantidade (diárias)
+              <input id="vd-quantidade" type="number" min="1" value="1" required />
+            </label>
+            <label>Preço unitário (custom)
+              <input id="vd-preco" type="number" step="0.01" placeholder="opcional (R$ por diária)" />
+            </label>
+            <label>Data e Hora
+              <input id="vd-data" type="datetime-local" />
+            </label>
+            <div class="actions">
+              <button type="submit">Salvar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- Despesas -->
+    <section id="tab-despesas" class="tab">
+      <div class="split">
+        <div>
+          <h2>Despesas</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Descrição</th><th>Valor</th><th>Data</th><th>Veículo (opcional)</th><th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tDespesas"></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Nova Despesa</h3>
+          <form id="fDespesa">
+            <label>Descrição <input id="d-descricao" required /></label>
+            <label>Valor (R$) <input id="d-valor" type="number" step="0.01" required /></label>
+            <label>Data <input id="d-data" type="date" /></label>
+            <label>Veículo (opcional)
+              <select id="d-veiculo"></select>
+            </label>
+            <div class="actions">
+              <button type="submit">Salvar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
