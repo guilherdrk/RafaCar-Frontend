@@ -5,9 +5,9 @@
 
 // Pelo novo bloco abaixo:
 // Base URL (lida a partir das variáveis de ambiente)
-const BASE = () => (import.meta.env.VITE_API_URL || "").replace(/\/+$/, '');
+const BASE = () => "https://rafacar-project.onrender.com";
 if (!BASE()) {
-    console.error("VITE_API_URL não está definida!");
+    console.error("BASE não está definida!");
     toast("Erro: A URL do backend não foi configurada.");
 }
 
