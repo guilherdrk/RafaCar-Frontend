@@ -1,15 +1,18 @@
-
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
-// Pelo novo bloco abaixo:
-// Base URL (lida a partir das variáveis de ambiente)
-const BASE = () => "https://rafacar-project.onrender.com";
-if (!BASE()) {
+  // BASE: tenta variável de ambiente global (__BASE_URL), depois localStorage, depois hardcode
+  const BASE = () => {
+    if (window.__BASE_URL) return window.__BASE_URL;
+    const saved = localStorage.getItem("BASE_URL");
+    if (saved) return saved;
+    return "https://rafacar-project.onrender.com";
+  };
+  if (!BASE()) {
     console.error("BASE não está definida!");
-    toast("Erro: A URL do backend não foi configurada.");
-}
+    if (typeof toast === "function") toast("Erro: A URL do backend não foi configurada.");
+  }
 
   // Navegação por tabs
   $$(".tabs button").forEach(btn => {
@@ -18,12 +21,13 @@ if (!BASE()) {
       btn.classList.add("active");
       const tab = btn.dataset.tab;
       $$(".tab").forEach(sec => sec.classList.remove("active"));
-      $("#tab-" + tab).classList.add("active");
+      const el = $("#tab-" + tab);
+      if (el) el.classList.add("active");
     });
   });
 
   // Toast simples
-  function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2200); }
+  function toast(msg){ const t=$("#toast"); if(!t) return; t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2200); }
 
   // Helpers
   const money = (v) => {
@@ -82,18 +86,15 @@ if (!BASE()) {
   }
 
   function popularSelectVeiculos(list){
-    const sel1 = $("#vd-veiculo");
+    const sel = $("#vd-veiculo");
     const sel2 = $("#d-veiculo");
-    [sel1, sel2].forEach(sel => { sel.innerHTML = `<option value="">—</option>`; });
+    [sel, sel2].forEach(s => { if (s) s.innerHTML = `<option value="">—</option>`; });
     list.forEach(v => {
-      const opt = (id) => {
-        const o = document.createElement("option");
-        o.value = v.id;
-        o.textContent = `${v.id} — ${v.nome}`;
-        return o;
-      };
-      sel1.appendChild(opt());
-      sel2.appendChild(opt());
+      const o = document.createElement("option");
+      o.value = v.id;
+      o.textContent = `${v.id} — ${v.nome}`;
+      if (sel) sel.appendChild(o.cloneNode(true));
+      if (sel2) sel2.appendChild(o.cloneNode(true));
     });
   }
 
@@ -131,30 +132,51 @@ if (!BASE()) {
     toast("Veículo removido.");
     listarVeiculos();
   }
-  $("#fVeiculo").addEventListener("submit", salvarVeiculo);
-  $("#v-cancelar").addEventListener("click", () => { $("#fVeiculo").reset(); $("#v-id").value=""; });
+  const evFVeiculo = $("#fVeiculo");
+  if (evFVeiculo) evFVeiculo.addEventListener("submit", salvarVeiculo);
+  const evVCancel = $("#v-cancelar");
+  if (evVCancel) evVCancel.addEventListener("click", () => { $("#fVeiculo").reset(); $("#v-id").value=""; });
 
-  // ====== Vendas ======
+  // ====== Vendas (adaptado para backend que usa apenas dias e precoPorDiaCustomizado) ======
   async function listarVendas(){
-    const data = await api("/vendas");
+    const data = await api("/locacoes");
     const tbody = $("#tVendas");
     tbody.innerHTML = "";
+
     data.forEach(v => {
+      // veiculo pode ser string (DTO) ou objeto
+      const veiculoName = (typeof v.veiculo === "string") ? v.veiculo : (v.veiculo?.nome ?? (v.veiculo?.id ? `#${v.veiculo.id}` : "—"));
+
+      // dias (obrigatório no novo backend)
+      const dias = Number(v.dias ?? 1);
+
+      // Preço unitário (por dia) vindo do DTO (precoUnitario) 
+      // fallback para precoPorDia / precoPorDiaCustomizado se DTO não tiver
+      const precoUnit = v.precoUnitario ?? v.precoPorDiaCustomizado ?? v.precoPorDia ?? null;
+
+      // custoTotal, total, lucro, margem — o DTO já retorna esses campos (se não, fazemos fallback)
+      const total = v.total ?? (precoUnit !== null ? Number(precoUnit) * dias : 0);
+      const custoTotal = v.custoTotal ?? (v.veiculo?.custo ? Number(v.veiculo.custo) * dias : 0);
+      const lucro = v.lucro ?? (total - custoTotal);
+      const margem = v.margem ?? (total ? (lucro / total * 100) : 0);
+
+      const dt = v.dataVenda ?? v.data ?? "";
+
       const tr = document.createElement("tr");
-      const dt = v.dataVenda ?? "";
       tr.innerHTML = `
         <td>${v.id}</td>
-        <td>${v.veiculo}</td>
-        <td>${v.quantidade}</td>
-        <td>${money(v.precoUnitario)}</td>
-        <td>${money(v.custoUnitario)}</td>
-        <td>${money(v.total)}</td>
-        <td>${money(v.lucro)}</td>
-        <td>${(v.margem ?? 0).toFixed(2)}</td>
+        <td>${veiculoName}</td>
+        <td>${dias}</td>
+        <td>${money(precoUnit)}</td>
+        <td>${money(custoTotal)}</td>
+        <td>${money(total)}</td>
+        <td>${money(lucro)}</td>
+        <td>${Number(margem).toFixed(2)}</td>
         <td>${dt ? new Date(dt).toLocaleString("pt-BR") : "—"}</td>
         <td><button class="icon" data-delv="${v.id}">🗑️</button></td>`;
       tbody.appendChild(tr);
     });
+
     tbody.querySelectorAll("button[data-delv]").forEach(btn => {
       btn.addEventListener("click", () => removerVenda(Number(btn.dataset.delv)));
     });
@@ -164,15 +186,25 @@ if (!BASE()) {
     e.preventDefault();
     const veiculoId = $("#vd-veiculo").value;
     if (!veiculoId) { alert("Selecione um veículo"); return; }
+
+    // agora o backend espera dias (nº de diárias) — não usamos quantidade
+    const dias = Number($("#vd-dias")?.value || 1);
+
     const payload = {
       veiculo: { id: Number(veiculoId) },
-      quantidade: Number($("#vd-quantidade").value || 1),
+      dias: dias
     };
+
     const precoStr = $("#vd-preco").value;
-    if (precoStr && !isNaN(Number(precoStr))) payload.precoUnitarioCustom = Number(precoStr);
+    if (precoStr && !isNaN(Number(precoStr))) {
+      // enviar Campo customizado (quando cliente devolve antes das 24h)
+      payload.precoPorDiaCustomizado = Number(precoStr);
+    }
+
     const dt = $("#vd-data").value;
     if (dt) payload.dataVenda = new Date(dt).toISOString();
-    await api("/vendas", { method:"POST", body: JSON.stringify(payload) });
+
+    await api("/locacoes", { method:"POST", body: JSON.stringify(payload) });
     toast("Venda registrada.");
     $("#fVenda").reset();
     listarVendas();
@@ -181,12 +213,13 @@ if (!BASE()) {
 
   async function removerVenda(id){
     if (!confirm("Remover venda #" + id + "?")) return;
-    await api(`/vendas/${id}`, { method:"DELETE" });
+    await api(`/locacoes/${id}`, { method:"DELETE" });
     toast("Venda removida.");
     listarVendas();
     carregarResumo();
   }
-  $("#fVenda").addEventListener("submit", salvarVenda);
+  const evFVenda = $("#fVenda");
+  if (evFVenda) evFVenda.addEventListener("submit", salvarVenda);
 
   // ====== Despesas ======
   async function listarDespesas(){
@@ -232,37 +265,40 @@ if (!BASE()) {
     listarDespesas();
     carregarResumo();
   }
-  $("#fDespesa").addEventListener("submit", salvarDespesa);
+  const evFDespesa = $("#fDespesa");
+  if (evFDespesa) evFDespesa.addEventListener("submit", salvarDespesa);
 
   // ====== Resumo ======
   async function carregarResumo(){
-    // /financeiro/resumo-mensal -> [{ano, mes, receita, despesa, lucro}]
-    // Em alguns controllers, vendas/despesas possuem /resumo-mensal próprios; mas vamos usar o consolidado.
     let linhas = [];
     try {
       linhas = await api("/financeiro/resumo-mensal");
     } catch (e) {
       console.warn("Falha no /financeiro/resumo-mensal, tentando combinar vendas+despesas...", e);
-      // fallback: buscar receitas e despesas separadamente se existirem
       try {
-        const rec = await api("/vendas/resumo-mensal");
+        const rec = await api("/locacoes/resumo-mensal");
         const des = await api("/despesas/resumo-mensal");
         const mapa = new Map();
         rec.forEach(r => {
           const key = `${r.ano}-${r.mes}`;
-          mapa.set(key, {ano:r.ano, mes:r.mes, receita:(r.total ?? r.receita ?? r.lucro ?? 0), despesa:0, lucro:(r.lucro ?? r.total ?? r.receita ?? 0)});
+          const receita = (r.total ?? r.receita ?? r.lucro ?? 0);
+          mapa.set(key, {ano:r.ano, mes:r.mes, receita: receita, despesa:0, lucro:(r.lucro ?? receita)});
         });
         des.forEach(d => {
           const key = `${d.ano}-${d.mes}`;
           const prev = mapa.get(key) || {ano:d.ano, mes:d.mes, receita:0, despesa:0, lucro:0};
-          prev.despesa = d.total;
+          prev.despesa = (d.total ?? d.despesa ?? d.despesas ?? 0);
           prev.lucro = (prev.receita || 0) - (prev.despesa || 0);
           mapa.set(key, prev);
         });
         linhas = Array.from(mapa.values()).sort((a,b)=> (b.ano-a.ano) || (b.mes-a.mes));
-      } catch {}
+      } catch (err) {
+        console.warn("Fallback resumo falhou", err);
+      }
     }
+
     const tbody = $("#tResumo");
+    if (!tbody) return;
     tbody.innerHTML = "";
     const now = new Date();
     const anoAtual = now.getFullYear();
@@ -284,9 +320,10 @@ if (!BASE()) {
         lucroAtual = Number(l.lucro||0);
       }
     });
-    $("#receitaMes").textContent = money(receitaAtual);
-    $("#despesaMes").textContent = money(despesaAtual);
-    $("#lucroMes").textContent = money(lucroAtual);
+    const rEl = $("#receitaMes"), dEl = $("#despesaMes"), lEl = $("#lucroMes");
+    if (rEl) rEl.textContent = money(receitaAtual);
+    if (dEl) dEl.textContent = money(despesaAtual);
+    if (lEl) lEl.textContent = money(lucroAtual);
   }
 
   async function carregarTudo(){
