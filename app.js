@@ -160,6 +160,7 @@
       const lucro = v.lucro ?? (total - custoTotal);
       const margem = v.margem ?? (total ? (lucro / total * 100) : 0);
 
+      const dt = v.dataVenda ?? v.data ?? "";
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
