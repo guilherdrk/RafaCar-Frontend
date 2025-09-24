@@ -160,7 +160,6 @@
       const lucro = v.lucro ?? (total - custoTotal);
       const margem = v.margem ?? (total ? (lucro / total * 100) : 0);
 
-      const dt = v.dataVenda ?? v.data ?? "";
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
@@ -172,7 +171,7 @@
         <td>${money(total)}</td>
         <td>${money(lucro)}</td>
         <td>${Number(margem).toFixed(2)}</td>
-        <td>${dt ? new Date(dt).toLocaleString("pt-BR") : "—"}</td>
+        <td>${dt ? new Date(dt + 'Z').toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—"}</td>
         <td><button class="icon" data-delv="${v.id}">🗑️</button></td>`;
       tbody.appendChild(tr);
     });
@@ -203,6 +202,7 @@
 
     const dt = $("#vd-data").value;
     if (dt) payload.dataVenda = new Date(dt).toISOString();
+
 
     await api("/locacoes", { method:"POST", body: JSON.stringify(payload) });
     toast("Venda registrada.");
